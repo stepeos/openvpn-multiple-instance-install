@@ -796,9 +796,9 @@ tls-cipher $CC_CIPHER
 client-config-dir $OPENVPN_SERVER_DIR/ccd
 status /var/log/openvpn/status${OPENVPN_SERVER_NUM}.log
 script-security 2
-up /etc/iptables/add-openvpn-rules-$OPENVPN_SERVER_NUM.sh
-down /etc/iptables/rm-openvpn-rules-$OPENVPN_SERVER_NUM.sh
-verb 3" >>$OPENVPN_SERVER_DIR/server$OPENVPN_SERVER_NUM.conf
+up $OPENVPN_SERVER_NUM/add-openvpn-rules.sh
+down $OPENVPN_SERVER_NUM/rm-openvpn-rules.sh
+verb 3" >>$OPENVPN_SERVER_DIR/server.conf
 
 	# Create client-config-dir dir
 	mkdir -p $OPENVPN_SERVER_DIR/ccd
