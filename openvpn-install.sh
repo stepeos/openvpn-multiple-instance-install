@@ -759,8 +759,8 @@ ifconfig-pool-persist ipp.txt" >>$OPENVPN_SERVER_DIR/server.conf
 		echo "server-ipv6 ${IPV6_ADDRESS}
 tun-ipv6
 # push tun-ipv6
-# push "route-ipv6 2000::/3"
-# push "redirect-gateway ipv6"" >>$OPENVPN_SERVER_DIR/server.conf
+# push \"route-ipv6 2000::/3\"
+# push \"redirect-gateway ipv6\"" >>$OPENVPN_SERVER_DIR/server.conf
 	fi
 
 	if [[ $COMPRESSION_ENABLED == "y" ]]; then
