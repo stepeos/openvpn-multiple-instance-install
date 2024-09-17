@@ -842,7 +842,7 @@ verb 3" >>$OPENVPN_SERVER_DIR/server$OPENVPN_SERVER_NUM.conf
 		systemctl start openvpn
 	else
 		# Don't modify package-provided service
-		cp /lib/systemd/system/openvpn\@.service /etc/systemd/system/openvpn\@.service
+		cp /usr/lib/systemd/system/openvpn-server@.service /etc/systemd/system/openvpn\@.service
 
 		# Workaround to fix OpenVPN service on OpenVZ
 		sed -i 's|LimitNPROC|#LimitNPROC|' /etc/systemd/system/openvpn\@.service
@@ -850,8 +850,8 @@ verb 3" >>$OPENVPN_SERVER_DIR/server$OPENVPN_SERVER_NUM.conf
 		sed -i 's|--cd /etc/openvpn --config /etc/openvpn/%i.conf|--cd /etc/openvpn/%i --script-security 2 --config /etc/openvpn/%i/server.conf|' /etc/systemd/system/openvpn-server@.service
 
 		systemctl daemon-reload
-		systemctl enable openvpn@server
-		systemctl restart openvpn@server
+		systemctl enable openvpn@server$OPENVPN_SERVER_NUM
+		systemctl restart openvpn@server$OPENVPN_SERVER_NUM
 	fi
 
 	# Add iptables rules in two scripts
