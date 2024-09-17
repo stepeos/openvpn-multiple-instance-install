@@ -849,14 +849,14 @@ iptables -t nat -I POSTROUTING 1 -s 10.8.${OPENVPN_SERVER_NUM}.0/24 -o $NIC -j M
 iptables -I INPUT 1 -i tun${OPENVPN_SERVER_PREV} -j ACCEPT
 iptables -I FORWARD 1 -i $NIC -o tun${OPENVPN_SERVER_PREV} -j ACCEPT
 iptables -I FORWARD 1 -i tun${OPENVPN_SERVER_PREV} -o $NIC -j ACCEPT
-iptables -I INPUT 1 -i $NIC -p $PROTOCOL --dport $PORT -j ACCEPT" >/etc/iptables/add-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
+iptables -I INPUT 1 -i $NIC -p $PROTOCOL --dport $PORT -j ACCEPT" >$OPENVPN_SERVER_DIR/add-openvpn-rules.sh
 
 	if [[ $IPV6_SUPPORT == 'y' ]]; then
 		echo "ip6tables -t nat -I POSTROUTING 1 -s $IPV6_ADDRESS -o $NIC -j MASQUERADE
 ip6tables -I INPUT 1 -i tun${OPENVPN_SERVER_PREV} -j ACCEPT
 ip6tables -I FORWARD 1 -i $NIC -o tun${OPENVPN_SERVER_PREV} -j ACCEPT
 ip6tables -I FORWARD 1 -i tun${OPENVPN_SERVER_PREV} -o $NIC -j ACCEPT
-ip6tables -I INPUT 1 -i $NIC -p $PROTOCOL --dport $PORT -j ACCEPT" >>/etc/iptables/add-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
+ip6tables -I INPUT 1 -i $NIC -p $PROTOCOL --dport $PORT -j ACCEPT" >>$OPENVPN_SERVER_DIR/add-openvpn-rules.sh
 	fi
 
 	# Script to remove rules
@@ -865,38 +865,21 @@ iptables -t nat -D POSTROUTING -s 10.8.${OPENVPN_SERVER_NUM}.0/24 -o $NIC -j MAS
 iptables -D INPUT -i tun${OPENVPN_SERVER_PREV} -j ACCEPT
 iptables -D FORWARD -i $NIC -o tun${OPENVPN_SERVER_PREV} -j ACCEPT
 iptables -D FORWARD -i tun${OPENVPN_SERVER_PREV} -o $NIC -j ACCEPT
-iptables -D INPUT -i $NIC -p $PROTOCOL --dport $PORT -j ACCEPT" >/etc/iptables/rm-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
+iptables -D INPUT -i $NIC -p $PROTOCOL --dport $PORT -j ACCEPT" $OPENVPN_SERVER_DIR/rm-openvpn-rules.sh
 
 	if [[ $IPV6_SUPPORT == 'y' ]]; then
 		echo "ip6tables -t nat -D POSTROUTING -s $IPV6_ADDRESS -o $NIC -j MASQUERADE
 ip6tables -D INPUT -i tun${OPENVPN_SERVER_PREV} -j ACCEPT
 ip6tables -D FORWARD -i $NIC -o tun${OPENVPN_SERVER_PREV} -j ACCEPT
 ip6tables -D FORWARD -i tun${OPENVPN_SERVER_PREV} -o $NIC -j ACCEPT
-ip6tables -D INPUT -i $NIC -p $PROTOCOL --dport $PORT -j ACCEPT" >>/etc/iptables/rm-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
+ip6tables -D INPUT -i $NIC -p $PROTOCOL --dport $PORT -j ACCEPT" >$OPENVPN_SERVER_DIR/rm-openvpn-rules.sh
 	fi
 
-	chmod +x /etc/iptables/add-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
-	chmod +x /etc/iptables/rm-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
-
-	# Handle the rules via a systemd script
-	echo "[Unit]
-Description=iptables rules for OpenVPN
-Before=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/etc/iptables/add-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
-ExecStop=/etc/iptables/rm-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target" >/etc/systemd/system/iptables-openvpn.service
+	chmod +x $OPENVPN_SERVER_DIR/add-openvpn-rules.sh
+	chmod +x $OPENVPN_SERVER_DIR/rm-openvpn-rules.sh
 
 	# Enable service and apply rules
 	systemctl daemon-reload
-	systemctl enable iptables-openvpn
-	systemctl start iptables-openvpn
 
 	# If the server is behind a NAT, use the correct IP address for the clients to connect to
 	if [[ $ENDPOINT != "" ]]; then
@@ -1082,28 +1065,23 @@ function removeOpenVPN() {
 
 		# Stop OpenVPN
 		if [[ $OS =~ (fedora|arch|centos|oracle) ]]; then
-			systemctl disable openvpn-server@server
-			systemctl stop openvpn-server@server
+			systemctl disable openvpn-server@server${OPENVPN_SERVER_NUM}
+			systemctl stop openvpn-server@server${OPENVPN_SERVER_NUM}
 			# Remove customised service
 			rm /etc/systemd/system/openvpn-server@.service
 		elif [[ $OS == "ubuntu" ]] && [[ $VERSION_ID == "16.04" ]]; then
 			systemctl disable openvpn
 			systemctl stop openvpn
 		else
-			systemctl disable openvpn@server
-			systemctl stop openvpn@server
+			systemctl disable openvpn@server${OPENVPN_SERVER_NUM}
+			systemctl stop openvpn@server${OPENVPN_SERVER_NUM}
 			# Remove customised service
 			rm /etc/systemd/system/openvpn\@.service
 		fi
 
 		# Remove the iptables rules related to the script
-		systemctl stop iptables-openvpn
-		# Cleanup
-		systemctl disable iptables-openvpn
-		rm /etc/systemd/system/iptables-openvpn.service
-		systemctl daemon-reload
-		rm /etc/iptables/add-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
-		rm /etc/iptables/rm-openvpn-rules-${OPENVPN_SERVER_NUM}.sh
+		rm $OPENVPN_SERVER_DIR/add-openvpn-rules.sh
+		rm $OPENVPN_SERVER_DIR/rm-openvpn-rules.sh
 
 		# SELinux
 		if hash sestatus 2>/dev/null; then
