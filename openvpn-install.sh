@@ -756,7 +756,7 @@ ifconfig-pool-persist ipp.txt" >>$OPENVPN_SERVER_DIR/server.conf
 
 	# IPv6 network settings if needed
 	if [[ $IPV6_SUPPORT == 'y' ]]; then
-		echo 'server-ipv6 $IPV6_ADDRESS
+		echo 'server-ipv6 ${IPV6_ADDRESS}
 tun-ipv6
 push tun-ipv6
 push "route-ipv6 2000::/3"
@@ -847,7 +847,8 @@ verb 3" >>$OPENVPN_SERVER_DIR/server.conf
 		# Workaround to fix OpenVPN service on OpenVZ
 		sed -i 's|LimitNPROC|#LimitNPROC|' /etc/systemd/system/openvpn\@.service
 		# Another workaround to keep using /etc/openvpn/
-		sed -i 's|--cd /etc/openvpn --config /etc/openvpn/%i.conf|--cd /etc/openvpn/%i --script-security 2 --config /etc/openvpn/%i/server.conf|' /etc/systemd/system/openvpn\@.service
+		sed -i 's|WorkingDirectory=/etc/openvpn/server|WorkingDirectory=/etc/openvpn/%i|' /etc/systemd/system/openvpn\@.service
+		sed -i 's|--config %i.conf|--cd /etc/openvpn/%i --script-security 2 --config /etc/openvpn/%i/server.conf|' /etc/systemd/system/openvpn\@.service
 
 		systemctl daemon-reload
 		systemctl enable openvpn@server$OPENVPN_SERVER_NUM
