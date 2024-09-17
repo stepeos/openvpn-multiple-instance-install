@@ -756,11 +756,11 @@ ifconfig-pool-persist ipp.txt" >>$OPENVPN_SERVER_DIR/server.conf
 
 	# IPv6 network settings if needed
 	if [[ $IPV6_SUPPORT == 'y' ]]; then
-		echo 'server-ipv6 ${IPV6_ADDRESS}
+		echo "server-ipv6 ${IPV6_ADDRESS}
 tun-ipv6
 push tun-ipv6
 push "route-ipv6 2000::/3"
-push "redirect-gateway ipv6"' >>$OPENVPN_SERVER_DIR/server.conf
+push "redirect-gateway ipv6"" >>$OPENVPN_SERVER_DIR/server.conf
 	fi
 
 	if [[ $COMPRESSION_ENABLED == "y" ]]; then
@@ -796,8 +796,8 @@ tls-cipher $CC_CIPHER
 client-config-dir $OPENVPN_SERVER_DIR/ccd
 status /var/log/openvpn/status${OPENVPN_SERVER_NUM}.log
 script-security 2
-up $OPENVPN_SERVER_NUM/add-openvpn-rules.sh
-down $OPENVPN_SERVER_NUM/rm-openvpn-rules.sh
+up $OPENVPN_SERVER_DIR/add-openvpn-rules.sh
+down $OPENVPN_SERVER_DIR/rm-openvpn-rules.sh
 verb 3" >>$OPENVPN_SERVER_DIR/server.conf
 
 	# Create client-config-dir dir
