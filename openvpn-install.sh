@@ -551,7 +551,7 @@ function installOpenVPN() {
 	# If OpenVPN isn't installed yet, install it. This script is more-or-less
 	# idempotent on multiple runs, but will only install OpenVPN from upstream
 	# the first time.
-	if [[ ! -e $OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf ]]; then
+	if [[ ! -e $OPENVPN_SERVER_DIR/server.conf ]]; then
 		if [[ $OS =~ (debian|ubuntu) ]]; then
 			apt-get update
 			apt-get -y install ca-certificates gnupg
@@ -656,11 +656,11 @@ function installOpenVPN() {
 	chmod 644 $OPENVPN_SERVER_DIR/crl.pem
 
 	# Generate server#.conf
-	echo "port $PORT" >$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+	echo "port $PORT" >$OPENVPN_SERVER_DIR/server.conf
 	if [[ $IPV6_SUPPORT == 'n' ]]; then
-		echo "proto $PROTOCOL" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo "proto $PROTOCOL" >>$OPENVPN_SERVER_DIR/server.conf
 	elif [[ $IPV6_SUPPORT == 'y' ]]; then
-		echo "proto ${PROTOCOL}6" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo "proto ${PROTOCOL}6" >>$OPENVPN_SERVER_DIR/server.conf
 	fi
 
 	echo "dev tun
@@ -671,7 +671,7 @@ persist-tun
 keepalive 10 120
 topology subnet
 server 10.8.${OPENVPN_SERVER_NUM}.0 255.255.255.0
-ifconfig-pool-persist ipp.txt" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+ifconfig-pool-persist ipp.txt" >>$OPENVPN_SERVER_DIR/server.conf
 
 	# DNS resolvers
 	case $DNS in
@@ -687,58 +687,58 @@ ifconfig-pool-persist ipp.txt" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}
 		sed -ne 's/^nameserver[[:space:]]\+\([^[:space:]]\+\).*$/\1/p' $RESOLVCONF | while read -r line; do
 			# Copy, if it's a IPv4 |or| if IPv6 is enabled, IPv4/IPv6 does not matter
 			if [[ $line =~ ^[0-9.]*$ ]] || [[ $IPV6_SUPPORT == 'y' ]]; then
-				echo "push \"dhcp-option DNS $line\"" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+				echo "push \"dhcp-option DNS $line\"" >>$OPENVPN_SERVER_DIR/server.conf
 			fi
 		done
 		;;
 	2) # Cloudflare
-		echo 'push "dhcp-option DNS 1.0.0.1"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 1.1.1.1"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 1.0.0.1"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 1.1.1.1"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	3) # Quad9
-		echo 'push "dhcp-option DNS 9.9.9.9"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 149.112.112.112"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 9.9.9.9"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 149.112.112.112"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	4) # Quad9 uncensored
-		echo 'push "dhcp-option DNS 9.9.9.10"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 149.112.112.10"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 9.9.9.10"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 149.112.112.10"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	5) # FDN
-		echo 'push "dhcp-option DNS 80.67.169.40"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 80.67.169.12"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 80.67.169.40"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 80.67.169.12"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	6) # DNS.WATCH
-		echo 'push "dhcp-option DNS 84.200.69.80"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 84.200.70.40"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 84.200.69.80"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 84.200.70.40"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	7) # OpenDNS
-		echo 'push "dhcp-option DNS 208.67.222.222"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 208.67.220.220"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 208.67.222.222"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 208.67.220.220"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	8) # Google
-		echo 'push "dhcp-option DNS 8.8.8.8"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 8.8.4.4"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 8.8.8.8"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 8.8.4.4"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	9) # Yandex Basic
-		echo 'push "dhcp-option DNS 77.88.8.8"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 77.88.8.1"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 77.88.8.8"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 77.88.8.1"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	10) # AdGuard DNS
-		echo 'push "dhcp-option DNS 94.140.14.14"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 94.140.15.15"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 94.140.14.14"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 94.140.15.15"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	11) # NextDNS
-		echo 'push "dhcp-option DNS 45.90.28.167"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo 'push "dhcp-option DNS 45.90.30.167"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo 'push "dhcp-option DNS 45.90.28.167"' >>$OPENVPN_SERVER_DIR/server.conf
+		echo 'push "dhcp-option DNS 45.90.30.167"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	12) # Custom DNS
-		echo "push \"dhcp-option DNS $DNS1\"" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo "push \"dhcp-option DNS $DNS1\"" >>$OPENVPN_SERVER_DIR/server.conf
 		if [[ $DNS2 != "" ]]; then
-			echo "push \"dhcp-option DNS $DNS2\"" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+			echo "push \"dhcp-option DNS $DNS2\"" >>$OPENVPN_SERVER_DIR/server.conf
 		fi
 		;;
 	esac
-	echo 'push "redirect-gateway def1 bypass-dhcp"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+	echo 'push "redirect-gateway def1 bypass-dhcp"' >>$OPENVPN_SERVER_DIR/server.conf
 
 	# IPv6 network settings if needed
 	if [[ $IPV6_SUPPORT == 'y' ]]; then
@@ -746,26 +746,26 @@ ifconfig-pool-persist ipp.txt" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}
 tun-ipv6
 push tun-ipv6
 push "route-ipv6 2000::/3"
-push "redirect-gateway ipv6"' >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+push "redirect-gateway ipv6"' >>$OPENVPN_SERVER_DIR/server.conf
 	fi
 
 	if [[ $COMPRESSION_ENABLED == "y" ]]; then
-		echo "compress $COMPRESSION_ALG" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo "compress $COMPRESSION_ALG" >>$OPENVPN_SERVER_DIR/server.conf
 	fi
 
 	if [[ $DH_TYPE == "1" ]]; then
-		echo "dh none" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
-		echo "ecdh-curve $DH_CURVE" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo "dh none" >>$OPENVPN_SERVER_DIR/server.conf
+		echo "ecdh-curve $DH_CURVE" >>$OPENVPN_SERVER_DIR/server.conf
 	elif [[ $DH_TYPE == "2" ]]; then
-		echo "dh dh.pem" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo "dh dh.pem" >>$OPENVPN_SERVER_DIR/server.conf
 	fi
 
 	case $TLS_SIG in
 	1)
-		echo "tls-crypt tls-crypt.key" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo "tls-crypt tls-crypt.key" >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	2)
-		echo "tls-auth tls-auth.key 0" >>$OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf
+		echo "tls-auth tls-auth.key 0" >>$OPENVPN_SERVER_DIR/server.conf
 		;;
 	esac
 
@@ -816,7 +816,7 @@ verb 3" >>$OPENVPN_SERVER_DIR/server$OPENVPN_SERVER_NUM.conf
 		# Workaround to fix OpenVPN service on OpenVZ
 		sed -i 's|LimitNPROC|#LimitNPROC|' /etc/systemd/system/openvpn-server@.service
 		# Another workaround to keep using /etc/openvpn/
-		sed -i 's|/etc/openvpn/server${OPENVPN_SERVER_NUM}|/etc/openvpn|' /etc/systemd/system/openvpn-server@.service
+		sed -i 's|--cd /etc/openvpn --config /etc/openvpn/%i.conf|--cd /etc/openvpn/%i --script-security 2 --config /etc/openvpn/%i/server.conf|' /etc/systemd/system/openvpn-server@.service
 
 		systemctl daemon-reload
 		systemctl enable openvpn-server@server$OPENVPN_SERVER_NUM
@@ -994,9 +994,9 @@ function newClient() {
 	fi
 
 	# Determine if we use tls-auth or tls-crypt
-	if grep -qs "^tls-crypt" $OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf; then
+	if grep -qs "^tls-crypt" $OPENVPN_SERVER_DIR/server.conf; then
 		TLS_SIG="1"
-	elif grep -qs "^tls-auth" $OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf; then
+	elif grep -qs "^tls-auth" $OPENVPN_SERVER_DIR/server.conf; then
 		TLS_SIG="2"
 	fi
 
@@ -1077,8 +1077,8 @@ function removeOpenVPN() {
 	read -rp "Do you really want to remove OpenVPN? [y/n]: " -e -i n REMOVE
 	if [[ $REMOVE == 'y' ]]; then
 		# Get OpenVPN port from the configuration
-		PORT=$(grep '^port ' $OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf | cut -d " " -f 2)
-		PROTOCOL=$(grep '^proto ' $OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf | cut -d " " -f 2)
+		PORT=$(grep '^port ' $OPENVPN_SERVER_DIR/server.conf | cut -d " " -f 2)
+		PROTOCOL=$(grep '^proto ' $OPENVPN_SERVER_DIR/server.conf | cut -d " " -f 2)
 
 		# Stop OpenVPN
 		if [[ $OS =~ (fedora|arch|centos|oracle) ]]; then
@@ -1183,7 +1183,7 @@ function manageMenu() {
 initialCheck
 
 # Check if OpenVPN is already installed
-if [[ -e $OPENVPN_SERVER_DIR/server${OPENVPN_SERVER_NUM}.conf && $AUTO_INSTALL != "y" ]]; then
+if [[ -e $OPENVPN_SERVER_DIR/server.conf && $AUTO_INSTALL != "y" ]]; then
 	manageMenu
 else
 	installOpenVPN
