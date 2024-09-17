@@ -677,7 +677,7 @@ function installOpenVPN() {
 		echo "proto ${PROTOCOL}6" >>$OPENVPN_SERVER_DIR/server.conf
 	fi
 
-	echo "dev tun
+	echo "dev tun$OPENVPN_SERVER_PREV
 user nobody
 group $NOGROUP
 persist-key
