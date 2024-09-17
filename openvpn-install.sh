@@ -822,43 +822,7 @@ verb 3" >>$OPENVPN_SERVER_DIR/server.conf
 		fi
 	fi
 
-	# Finally, restart and enable OpenVPN
-	if [[ $OS == 'arch' || $OS == 'fedora' || $OS == 'centos' || $OS == 'oracle' ]]; then
-		# Don't modify package-provided service
-		cp /usr/lib/systemd/system/openvpn-server@.service /etc/systemd/system/openvpn-server@.service
-
-		# Workaround to fix OpenVPN service on OpenVZ
-		sed -i 's|LimitNPROC|#LimitNPROC|' /etc/systemd/system/openvpn-server@.service
-		# Another workaround to keep using /etc/openvpn/
-		sed -i 's|--cd /etc/openvpn --config /etc/openvpn/%i.conf|--cd /etc/openvpn/%i --script-security 2 --config /etc/openvpn/%i/server.conf|' /etc/systemd/system/openvpn-server@.service
-
-		systemctl daemon-reload
-		systemctl enable openvpn-server@server$OPENVPN_SERVER_NUM
-		systemctl restart openvpn-server@server$OPENVPN_SERVER_NUM
-	elif [[ $OS == "ubuntu" ]] && [[ $VERSION_ID == "16.04" ]]; then
-		# On Ubuntu 16.04, we use the package from the OpenVPN repo
-		# This package uses a sysvinit service
-		systemctl enable openvpn
-		systemctl start openvpn
-	else
-		# Don't modify package-provided service
-		cp /usr/lib/systemd/system/openvpn-server@.service /etc/systemd/system/openvpn\@.service
-
-		# Workaround to fix OpenVPN service on OpenVZ
-		sed -i 's|LimitNPROC|#LimitNPROC|' /etc/systemd/system/openvpn\@.service
-		# Another workaround to keep using /etc/openvpn/
-		sed -i 's|WorkingDirectory=/etc/openvpn/server|WorkingDirectory=/etc/openvpn/%i|' /etc/systemd/system/openvpn\@.service
-		sed -i 's|--config %i.conf|--cd /etc/openvpn/%i --script-security 2 --config /etc/openvpn/%i/server.conf|' /etc/systemd/system/openvpn\@.service
-
-		systemctl daemon-reload
-		systemctl enable openvpn@server$OPENVPN_SERVER_NUM
-		systemctl restart openvpn@server$OPENVPN_SERVER_NUM
-	fi
-
-	# Add iptables rules in two scripts
-	mkdir -p /etc/iptables
-
-	# Script to add rules
+	# Scripts to add rules
 	echo "#!/bin/sh
 iptables -t nat -I POSTROUTING 1 -s 10.8.${OPENVPN_SERVER_NUM}.0/24 -o $NIC -j MASQUERADE
 iptables -I INPUT 1 -i tun${OPENVPN_SERVER_PREV} -j ACCEPT
@@ -892,6 +856,40 @@ ip6tables -D INPUT -i $NIC -p $PROTOCOL --dport $PORT -j ACCEPT" >$OPENVPN_SERVE
 
 	chmod +x $OPENVPN_SERVER_DIR/add-openvpn-rules.sh
 	chmod +x $OPENVPN_SERVER_DIR/rm-openvpn-rules.sh
+
+
+	# Finally, restart and enable OpenVPN
+	if [[ $OS == 'arch' || $OS == 'fedora' || $OS == 'centos' || $OS == 'oracle' ]]; then
+		# Don't modify package-provided service
+		cp /usr/lib/systemd/system/openvpn-server@.service /etc/systemd/system/openvpn-server@.service
+
+		# Workaround to fix OpenVPN service on OpenVZ
+		sed -i 's|LimitNPROC|#LimitNPROC|' /etc/systemd/system/openvpn-server@.service
+		# Another workaround to keep using /etc/openvpn/
+		sed -i 's|--cd /etc/openvpn --config /etc/openvpn/%i.conf|--cd /etc/openvpn/%i --script-security 2 --config /etc/openvpn/%i/server.conf|' /etc/systemd/system/openvpn-server@.service
+
+		systemctl daemon-reload
+		systemctl enable openvpn-server@server$OPENVPN_SERVER_NUM
+		systemctl restart openvpn-server@server$OPENVPN_SERVER_NUM
+	elif [[ $OS == "ubuntu" ]] && [[ $VERSION_ID == "16.04" ]]; then
+		# On Ubuntu 16.04, we use the package from the OpenVPN repo
+		# This package uses a sysvinit service
+		systemctl enable openvpn
+		systemctl start openvpn
+	else
+		# Don't modify package-provided service
+		cp /usr/lib/systemd/system/openvpn-server@.service /etc/systemd/system/openvpn\@.service
+
+		# Workaround to fix OpenVPN service on OpenVZ
+		sed -i 's|LimitNPROC|#LimitNPROC|' /etc/systemd/system/openvpn\@.service
+		# Another workaround to keep using /etc/openvpn/
+		sed -i 's|WorkingDirectory=/etc/openvpn/server|WorkingDirectory=/etc/openvpn/%i|' /etc/systemd/system/openvpn\@.service
+		sed -i 's|--config %i.conf|--cd /etc/openvpn/%i --script-security 2 --config /etc/openvpn/%i/server.conf|' /etc/systemd/system/openvpn\@.service
+
+		systemctl daemon-reload
+		systemctl enable openvpn@server$OPENVPN_SERVER_NUM
+		systemctl restart openvpn@server$OPENVPN_SERVER_NUM
+	fi
 
 	# Enable service and apply rules
 	systemctl daemon-reload
