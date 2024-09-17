@@ -93,31 +93,45 @@ function checkOS() {
 }
 
 function initialCheck() {
-	if ! isRoot; then
-		echo "Sorry, you need to run this as root"
-		exit 1
-	fi
-	if ! tunAvailable; then
-		echo "TUN is not available"
-		exit 1
-	fi
-	CURRENT_WORKING_DIR=$(pwd)
-	if [[ CURRENT_WORKING_DIR  != /etc/openvpn/server*]];
-	then
-		OPENVPN_SERVER_DIR=/etc/openvpn/server1
-	fi
-	regex="/etc/openvpn/server\d"
-	if [[ $s =~ $regex ]]; then
-		echo "Server directory in /etc/openvpn/ must be server[NUMBER] e.g. server1"
-		exit 1
-	fi
-	OPENVPN_SERVER_NUM="${OPENVPN_SERVER_DIR##*/server}"
-	OPENVPN_SERVER_PREV=$((OPENVPN_SERVER_NUM - 1))
-	echo "Current server number: $OPENVPN_SERVER_NUM"
-	echo "Previous server number: $OPENVPN_SERVER_PREV"
-	IPV6_PART=$(( ipv6_base + OPENVPN_SERVER_NUM ))
-	IPV6_ADDRESS="fd$IPV6_PART:$IPV6_PART:$IPV6_PART:$IPV6_PART::/112"
-	checkOS
+    if ! isRoot; then
+        echo "Sorry, you need to run this as root"
+        exit 1
+    fi
+
+    if ! tunAvailable; then
+        echo "TUN is not available"
+        exit 1
+    fi
+
+    OPENVPN_SERVER_DIR=$(pwd)
+
+    if [[ "$OPENVPN_SERVER_DIR" != /etc/openvpn/server* ]]; then
+        OPENVPN_SERVER_DIR="/etc/openvpn/server1"
+    fi
+
+    regex="/etc/openvpn/server[0-9]+"
+
+    if ! [[ "$OPENVPN_SERVER_DIR" =~ $regex ]]; then
+        echo "Server directory in /etc/openvpn/ must be server[NUMBER], e.g. server1"
+        exit 1
+    fi
+
+    # Extract the number after "server" from the directory name
+    OPENVPN_SERVER_NUM="${OPENVPN_SERVER_DIR##*/server}"
+
+    # Subtract 1 from the server number
+    OPENVPN_SERVER_PREV=$((OPENVPN_SERVER_NUM - 1))
+
+    echo "Current server number: $OPENVPN_SERVER_NUM"
+    echo "Previous server number: $OPENVPN_SERVER_PREV"
+
+    # Adjust the IPv6 part
+    IPV6_PART=$((42 + OPENVPN_SERVER_NUM))
+    IPV6_ADDRESS="fd$IPV6_PART:$IPV6_PART:$IPV6_PART:$IPV6_PART::/112"
+    echo "Generated IPv6 address: $IPV6_ADDRESS"
+
+    # Call checkOS function (assuming it's defined elsewhere)
+    checkOS
 }
 
 
