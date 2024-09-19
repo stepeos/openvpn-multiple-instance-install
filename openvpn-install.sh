@@ -232,20 +232,37 @@ function installQuestions() {
 	echo ""
 	echo "What DNS resolvers do you want to use with the VPN?"
 	echo "   1) Current system resolvers (from /etc/resolv.conf)"
-	echo "   2) Cloudflare (Anycast: worldwide)"
-	echo "   3) Quad9 (Anycast: worldwide)"
-	echo "   4) Quad9 uncensored (Anycast: worldwide)"
-	echo "   5) FDN (France)"
-	echo "   6) DNS.WATCH (Germany)"
-	echo "   7) OpenDNS (Anycast: worldwide)"
-	echo "   8) Google (Anycast: worldwide)"
-	echo "   9) Yandex Basic (Russia)"
-	echo "   10) AdGuard DNS (Anycast: worldwide)"
-	echo "   11) NextDNS (Anycast: worldwide)"
-	echo "   12) Custom"
+	echo "   2) Self-hosted DNS Resolver (Unbound)"
+	echo "   3) Cloudflare (Anycast: worldwide)"
+	echo "   4) Quad9 (Anycast: worldwide)"
+	echo "   5) Quad9 uncensored (Anycast: worldwide)"
+	echo "   6) FDN (France)"
+	echo "   7) DNS.WATCH (Germany)"
+	echo "   8) OpenDNS (Anycast: worldwide)"
+	echo "   9) Google (Anycast: worldwide)"
+	echo "   10) Yandex Basic (Russia)"
+	echo "   11) AdGuard DNS (Anycast: worldwide)"
+	echo "   12) NextDNS (Anycast: worldwide)"
+	echo "   13) Custom"
 	until [[ $DNS =~ ^[0-9]+$ ]] && [ "$DNS" -ge 1 ] && [ "$DNS" -le 13 ]; do
-		read -rp "DNS [1-12]: " -e -i 11 DNS
-		if [[ $DNS == "12" ]]; then
+		read -rp "DNS [1-13]: " -e -i 11 DNS
+		if [[ $DNS == 2 ]] && [[ -e /etc/unbound/unbound.conf ]]; then
+			echo ""
+			echo "Unbound is already installed."
+			echo "You can allow the script to configure it in order to use it from your OpenVPN clients"
+			echo "We will simply add a second server to /etc/unbound/unbound.conf for the OpenVPN subnet."
+			echo "No changes are made to the current configuration."
+			echo ""
+
+			until [[ $CONTINUE =~ (y|n) ]]; do
+				read -rp "Apply configuration changes to Unbound? [y/n]: " -e CONTINUE
+			done
+			if [[ $CONTINUE == "n" ]]; then
+				# Break the loop and cleanup
+				unset DNS
+				unset CONTINUE
+			fi
+		elif [[ $DNS == "13" ]]; then
 			until [[ $DNS1 =~ ^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; do
 				read -rp "Primary DNS: " -e DNS1
 			done
@@ -512,6 +529,122 @@ function installQuestions() {
 	fi
 }
 
+
+
+function installUnbound() {
+	# If Unbound isn't installed, install it
+	if [[ ! -e /etc/unbound/unbound.conf ]]; then
+		if [[ $OS =~ (debian|ubuntu) ]]; then
+			apt-get install -y unbound
+
+			# Main configuration file
+			echo 'server:
+	interface: 10.8.${OPENVPN_SERVER_NUM}.1
+	access-control: 10.8.${OPENVPN_SERVER_NUM}.1/24 allow
+	hide-identity: yes
+	hide-version: yes
+	use-caps-for-id: yes
+	prefetch: yes' >>/etc/unbound/unbound.conf
+
+		elif [[ $OS =~ (centos|amzn|oracle) ]]; then
+			yum install -y unbound
+
+			# Configuration
+			sed -i 's|# interface: 0.0.0.0$|interface: 10.8.${OPENVPN_SERVER_NUM}.1|' /etc/unbound/unbound.conf
+			sed -i 's|# access-control: 127.0.0.0/8 allow|access-control: 10.8.${OPENVPN_SERVER_NUM}.1/24 allow|' /etc/unbound/unbound.conf
+			sed -i 's|# hide-identity: no|hide-identity: yes|' /etc/unbound/unbound.conf
+			sed -i 's|# hide-version: no|hide-version: yes|' /etc/unbound/unbound.conf
+			sed -i 's|use-caps-for-id: no|use-caps-for-id: yes|' /etc/unbound/unbound.conf
+
+		elif [[ $OS == "fedora" ]]; then
+			dnf install -y unbound
+
+			# Configuration
+			sed -i 's|# interface: 0.0.0.0$|interface: 10.8.${OPENVPN_SERVER_NUM}.1|' /etc/unbound/unbound.conf
+			sed -i 's|# access-control: 127.0.0.0/8 allow|access-control: 10.8.${OPENVPN_SERVER_NUM}.1/24 allow|' /etc/unbound/unbound.conf
+			sed -i 's|# hide-identity: no|hide-identity: yes|' /etc/unbound/unbound.conf
+			sed -i 's|# hide-version: no|hide-version: yes|' /etc/unbound/unbound.conf
+			sed -i 's|# use-caps-for-id: no|use-caps-for-id: yes|' /etc/unbound/unbound.conf
+
+		elif [[ $OS == "arch" ]]; then
+			pacman -Syu --noconfirm unbound
+
+			# Get root servers list
+			curl -o /etc/unbound/root.hints https://www.internic.net/domain/named.cache
+
+			if [[ ! -f /etc/unbound/unbound.conf.old ]]; then
+				mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.old
+			fi
+
+			echo 'server:
+	use-syslog: yes
+	do-daemonize: no
+	username: "unbound"
+	directory: "/etc/unbound"
+	trust-anchor-file: trusted-key.key
+	root-hints: root.hints
+	interface: 10.8.${OPENVPN_SERVER_NUM}.1
+	access-control: 10.8.${OPENVPN_SERVER_NUM}.1/24 allow
+	port: 53
+	num-threads: 2
+	use-caps-for-id: yes
+	harden-glue: yes
+	hide-identity: yes
+	hide-version: yes
+	qname-minimisation: yes
+	prefetch: yes' >/etc/unbound/unbound.conf
+		fi
+
+		# IPv6 DNS for all OS
+		if [[ $IPV6_SUPPORT == 'y' ]]; then
+			echo 'interface: fd42:42:42:42::1
+	access-control: fd42:42:42:42::/112 allow' >>/etc/unbound/unbound.conf
+		fi
+
+		if [[ ! $OS =~ (fedora|centos|amzn|oracle) ]]; then
+			# DNS Rebinding fix
+			echo "private-address: 10.0.0.0/8
+	private-address: fd$IPV6_PART:$IPV6_PART:$IPV6_PART:$IPV6_PART::/112
+	private-address: 172.16.0.0/12
+	private-address: 192.168.0.0/16
+	private-address: 169.254.0.0/16
+	private-address: fd00::/8
+	private-address: fe80::/10
+	private-address: 127.0.0.0/8
+	private-address: ::ffff:0:0/96" >>/etc/unbound/unbound.conf
+		fi
+	else # Unbound is already installed
+		echo 'include: /etc/unbound/openvpn_${OPENVPN_SERVER_NUM}.conf' >>/etc/unbound/unbound.conf
+
+		# Add Unbound 'server' for the OpenVPN subnet
+		echo 'server:
+interface: 10.8.${OPENVPN_SERVER_NUM}.1
+access-control: 10.8.${OPENVPN_SERVER_NUM}.1/24 allow
+hide-identity: yes
+hide-version: yes
+use-caps-for-id: yes
+prefetch: yes
+private-address: 10.0.0.0/8
+private-address: fd$IPV6_PART:$IPV6_PART:$IPV6_PART:$IPV6_PART::/112
+private-address: 172.16.0.0/12
+private-address: 192.168.0.0/16
+private-address: 169.254.0.0/16
+private-address: fd00::/8
+private-address: fe80::/10
+private-address: 127.0.0.0/8
+private-address: ::ffff:0:0/96' >/etc/unbound/openvpn_${OPENVPN_SERVER_NUM}.conf
+		if [[ $IPV6_SUPPORT == 'y' ]]; then
+			echo 'interface: fd$IPV6_PART:$IPV6_PART:$IPV6_PART:$IPV6_PART::1
+	access-control: fd$IPV6_PART:$IPV6_PART:$IPV6_PART:$IPV6_PART::/112 allow' >>/etc/unbound/openvpn_${OPENVPN_SERVER_NUM}.conf
+		fi
+	fi
+
+	systemctl enable unbound
+	systemctl restart unbound
+}
+
+
+
 function installOpenVPN() {
 	if [[ $AUTO_INSTALL == "y" ]]; then
 		# Set default choices so that no questions will be asked.
@@ -705,47 +838,53 @@ ifconfig-pool-persist ipp.txt" >>$OPENVPN_SERVER_DIR/server.conf
 			fi
 		done
 		;;
-	2) # Cloudflare
+	2) # Self-hosted DNS resolver (Unbound)
+		echo 'push "dhcp-option DNS 10.8.0.1"' >>/etc/openvpn/server.conf
+		if [[ $IPV6_SUPPORT == 'y' ]]; then
+			echo 'push "dhcp-option DNS fd42:42:42:42::1"' >>/etc/openvpn/server.conf
+		fi
+		;;
+	3) # Cloudflare
 		echo 'push "dhcp-option DNS 1.0.0.1"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 1.1.1.1"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	3) # Quad9
+	4) # Quad9
 		echo 'push "dhcp-option DNS 9.9.9.9"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 149.112.112.112"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	4) # Quad9 uncensored
+	5) # Quad9 uncensored
 		echo 'push "dhcp-option DNS 9.9.9.10"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 149.112.112.10"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	5) # FDN
+	6) # FDN
 		echo 'push "dhcp-option DNS 80.67.169.40"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 80.67.169.12"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	6) # DNS.WATCH
+	7) # DNS.WATCH
 		echo 'push "dhcp-option DNS 84.200.69.80"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 84.200.70.40"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	7) # OpenDNS
+	8) # OpenDNS
 		echo 'push "dhcp-option DNS 208.67.222.222"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 208.67.220.220"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	8) # Google
+	9) # Google
 		echo 'push "dhcp-option DNS 8.8.8.8"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 8.8.4.4"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	9) # Yandex Basic
+	10) # Yandex Basic
 		echo 'push "dhcp-option DNS 77.88.8.8"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 77.88.8.1"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	10) # AdGuard DNS
+	11) # AdGuard DNS
 		echo 'push "dhcp-option DNS 94.140.14.14"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 94.140.15.15"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	11) # NextDNS
+	12) # NextDNS
 		echo 'push "dhcp-option DNS 45.90.28.167"' >>$OPENVPN_SERVER_DIR/server.conf
 		echo 'push "dhcp-option DNS 45.90.30.167"' >>$OPENVPN_SERVER_DIR/server.conf
 		;;
-	12) # Custom DNS
+	13) # Custom DNS
 		echo "push \"dhcp-option DNS $DNS1\"" >>$OPENVPN_SERVER_DIR/server.conf
 		if [[ $DNS2 != "" ]]; then
 			echo "push \"dhcp-option DNS $DNS2\"" >>$OPENVPN_SERVER_DIR/server.conf
@@ -1067,6 +1206,41 @@ function revokeClient() {
 	echo "Certificate for client $CLIENT revoked."
 }
 
+function removeUnbound() {
+	# Remove OpenVPN-related config
+	sed -i '/include: \/etc\/unbound\/openvpn_${OPENVPN_SERVER_NUM}.conf/d' /etc/unbound/unbound.conf
+	rm /etc/unbound/openvpn_${OPENVPN_SERVER_NUM}.conf'
+
+	until [[ $REMOVE_UNBOUND =~ (y|n) ]]; do
+		echo ""
+		echo "If you were already using Unbound before installing OpenVPN, I removed the configuration related to OpenVPN."
+		read -rp "Do you want to completely remove Unbound? [y/n]: " -e REMOVE_UNBOUND
+	done
+
+	if [[ $REMOVE_UNBOUND == 'y' ]]; then
+		# Stop Unbound
+		systemctl stop unbound
+
+		if [[ $OS =~ (debian|ubuntu) ]]; then
+			apt-get remove --purge -y unbound
+		elif [[ $OS == 'arch' ]]; then
+			pacman --noconfirm -R unbound
+		elif [[ $OS =~ (centos|amzn|oracle) ]]; then
+			yum remove -y unbound
+		elif [[ $OS == 'fedora' ]]; then
+			dnf remove -y unbound
+		fi
+
+		rm -rf /etc/unbound/
+
+		echo ""
+		echo "Unbound removed!"
+	else
+		systemctl restart unbound
+		echo ""
+		echo "Unbound wasn't removed."
+	fi
+}
 
 function removeOpenVPN() {
 	echo ""
@@ -1128,7 +1302,7 @@ function removeOpenVPN() {
 		rm -rf /var/log/openvpn
 
 		# Unbound
-		if [[ -e /etc/unbound/openvpn.conf ]]; then
+		if [[ -e /etc/unbound/openvpn_${OPENVPN_SERVER_NUM}.conf ]]; then
 			removeUnbound
 		fi
 		echo ""
